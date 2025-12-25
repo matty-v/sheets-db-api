@@ -1,0 +1,21 @@
+# Node modules
+node_modules/
+
+# Compiled output (will be built during deployment)
+dist/
+
+# Development files
+.git/
+.gitignore
+*.md
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Test files
+*.test.ts
+*.spec.ts
+__tests__/
