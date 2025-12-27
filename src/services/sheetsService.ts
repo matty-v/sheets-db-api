@@ -149,7 +149,21 @@ export async function appendRow(
   sheetName: string,
   data: RowData
 ): Promise<{ rowIndex: number }> {
-  const headers = await getSchema(spreadsheetId, sheetName);
+  let headers = await getSchema(spreadsheetId, sheetName);
+
+  // If no headers exist, create them from the data keys
+  if (headers.length === 0) {
+    headers = Object.keys(data);
+    // Add header row first
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${sheetName}'!1:1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [headers],
+      },
+    });
+  }
 
   const rowValues = headers.map((header) => {
     const value = data[header];

@@ -1,0 +1,447 @@
+openapi: 3.0.3
+info:
+  title: Sheets DB API
+  description: Google Cloud Function that proxies requests to Google Sheets API, treating sheets as database tables
+  version: 1.0.0
+servers:
+  - url: https://sheetsapi-g56q77hy2a-uc.a.run.app
+    description: Google Cloud Function endpoint
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API
+      operationId: getHealth
+      responses:
+        '200':
+          description: API is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /sheets:
+    get:
+      summary: List all sheets
+      description: Returns a list of all sheets in the spreadsheet
+      operationId: listSheets
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+      responses:
+        '200':
+          description: List of sheets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SheetsListResponse'
+        '400':
+          description: Missing required header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new sheet
+      description: Creates a new sheet in the spreadsheet
+      operationId: createSheet
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSheetRequest'
+      responses:
+        '201':
+          description: Sheet created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SheetResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sheets/{sheetName}:
+    delete:
+      summary: Delete a sheet
+      description: Deletes a sheet from the spreadsheet
+      operationId: deleteSheet
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+      responses:
+        '204':
+          description: Sheet deleted successfully
+        '400':
+          description: Missing required header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Sheet not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sheets/{sheetName}/schema:
+    get:
+      summary: Get sheet schema
+      description: Returns the column headers (first row) of the sheet
+      operationId: getSchema
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+      responses:
+        '200':
+          description: Schema retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SchemaResponse'
+        '400':
+          description: Missing required header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sheets/{sheetName}/rows:
+    get:
+      summary: Get all rows
+      description: Returns all rows from the sheet (excluding header row)
+      operationId: getRows
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+      responses:
+        '200':
+          description: Rows retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowsListResponse'
+        '400':
+          description: Missing required header
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a new row
+      description: Appends a new row to the sheet. If the sheet is empty, creates headers from the object keys.
+      operationId: createRow
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RowData'
+      responses:
+        '201':
+          description: Row created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateRowResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /sheets/{sheetName}/rows/{rowIndex}:
+    get:
+      summary: Get a specific row
+      description: Returns a single row by its index (1-indexed, must be >= 2 since row 1 contains headers)
+      operationId: getRow
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+        - $ref: '#/components/parameters/RowIndex'
+      responses:
+        '200':
+          description: Row retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RowResponse'
+        '400':
+          description: Invalid row index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Row not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update a row
+      description: Updates an existing row by its index
+      operationId: updateRow
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+        - $ref: '#/components/parameters/RowIndex'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RowData'
+      responses:
+        '204':
+          description: Row updated successfully
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a row
+      description: Deletes a row by its index
+      operationId: deleteRow
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+        - $ref: '#/components/parameters/RowIndex'
+      responses:
+        '204':
+          description: Row deleted successfully
+        '400':
+          description: Invalid row index
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    SpreadsheetId:
+      name: X-Spreadsheet-Id
+      in: header
+      required: true
+      description: The Google Sheets spreadsheet ID
+      schema:
+        type: string
+      example: "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+
+    SheetName:
+      name: sheetName
+      in: path
+      required: true
+      description: The name of the sheet (tab) within the spreadsheet
+      schema:
+        type: string
+      example: "Users"
+
+    RowIndex:
+      name: rowIndex
+      in: path
+      required: true
+      description: The 1-indexed row number (must be >= 2, since row 1 contains headers)
+      schema:
+        type: integer
+        minimum: 2
+      example: 2
+
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: "ok"
+      required:
+        - status
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required:
+        - error
+      example:
+        error: "Missing required header: X-Spreadsheet-Id"
+
+    SheetInfo:
+      type: object
+      properties:
+        sheetId:
+          type: integer
+          description: The unique ID of the sheet
+        title:
+          type: string
+          description: The name of the sheet
+        index:
+          type: integer
+          description: The position of the sheet (0-indexed)
+      required:
+        - sheetId
+        - title
+        - index
+      example:
+        sheetId: 0
+        title: "Users"
+        index: 0
+
+    SheetsListResponse:
+      type: object
+      properties:
+        sheets:
+          type: array
+          items:
+            $ref: '#/components/schemas/SheetInfo'
+      required:
+        - sheets
+
+    CreateSheetRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          description: The name for the new sheet
+      required:
+        - name
+      example:
+        name: "NewSheet"
+
+    SheetResponse:
+      type: object
+      properties:
+        sheet:
+          $ref: '#/components/schemas/SheetInfo'
+      required:
+        - sheet
+
+    SchemaResponse:
+      type: object
+      properties:
+        columns:
+          type: array
+          items:
+            type: string
+          description: List of column headers
+      required:
+        - columns
+      example:
+        columns: ["id", "name", "email", "created_at"]
+
+    RowData:
+      type: object
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: 'null'
+      description: A key-value object where keys are column names and values are cell values
+      example:
+        id: 1
+        name: "John Doe"
+        email: "john@example.com"
+        active: true
+
+    RowsListResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RowData'
+      required:
+        - rows
+
+    RowResponse:
+      type: object
+      properties:
+        row:
+          $ref: '#/components/schemas/RowData'
+      required:
+        - row
+
+    CreateRowResponse:
+      type: object
+      properties:
+        rowIndex:
+          type: integer
+          description: The 1-indexed row number of the newly created row
+      required:
+        - rowIndex
+      example:
+        rowIndex: 5
