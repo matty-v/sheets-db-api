@@ -6,7 +6,11 @@
   "scripts": {
     "build": "tsc",
     "start": "functions-framework --target=sheetsApi",
-    "dev": "tsc -w & functions-framework --target=sheetsApi"
+    "dev": "tsc -w & functions-framework --target=sheetsApi",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "vitest run --config vitest.config.e2e.ts",
+    "test:e2e:watch": "vitest --config vitest.config.e2e.ts"
   },
   "engines": {
     "node": ">=20"
@@ -21,6 +25,12 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0"
+    "@types/supertest": "^6.0.3",
+    "dotenv": "^17.2.3",
+    "openapi-response-validator": "^12.1.3",
+    "supertest": "^7.1.4",
+    "typescript": "^5.6.0",
+    "vitest": "^4.0.16",
+    "yaml": "^2.8.2"
   }
 }
