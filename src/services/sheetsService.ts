@@ -10,6 +10,64 @@ export interface RowData {
   [key: string]: string | number | boolean | null;
 }
 
+// ISO 8601 date pattern: 2025-12-29T17:29:33.195Z or 2025-12-29T17:29:33Z
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/;
+
+// Google Sheets date pattern: 2025-12-29 17:29:33 (what we store)
+const SHEETS_DATETIME_REGEX = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+
+// Google Sheets date-only pattern: 2025-12-29
+const SHEETS_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Converts ISO 8601 date strings to a format Google Sheets can interpret as dates.
+ * Other values are passed through unchanged.
+ */
+function formatValueForSheets(value: string | number | boolean | null): string | number | boolean {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (typeof value === 'string' && ISO_DATE_REGEX.test(value)) {
+    const date = new Date(value);
+    // Format as "YYYY-MM-DD HH:mm:ss" which Google Sheets recognizes as a datetime
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    const seconds = String(date.getUTCSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+  }
+
+  return value;
+}
+
+/**
+ * Converts Google Sheets date strings back to ISO 8601 format.
+ * Other values are passed through unchanged.
+ */
+function formatValueFromSheets(value: unknown): string | number | boolean | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    // Check for datetime format: "2025-12-29 17:29:33"
+    if (SHEETS_DATETIME_REGEX.test(value)) {
+      const [datePart, timePart] = value.split(' ');
+      return `${datePart}T${timePart}.000Z`;
+    }
+
+    // Check for date-only format: "2025-12-29"
+    if (SHEETS_DATE_REGEX.test(value)) {
+      return `${value}T00:00:00.000Z`;
+    }
+  }
+
+  return value as string | number | boolean;
+}
+
 export interface SheetInfo {
   sheetId: number;
   title: string;
@@ -114,7 +172,7 @@ export async function getRows(
   return rows.map((row) => {
     const obj: RowData = {};
     headers.forEach((header, index) => {
-      obj[header] = row[index] ?? null;
+      obj[header] = formatValueFromSheets(row[index]);
     });
     return obj;
   });
@@ -139,7 +197,7 @@ export async function getRow(
 
   const obj: RowData = {};
   headers.forEach((header, index) => {
-    obj[header] = row[index] ?? null;
+    obj[header] = formatValueFromSheets(row[index]);
   });
   return obj;
 }
@@ -167,7 +225,7 @@ export async function appendRow(
 
   const rowValues = headers.map((header) => {
     const value = data[header];
-    return value === null || value === undefined ? '' : value;
+    return formatValueForSheets(value);
   });
 
   const response = await sheets.spreadsheets.values.append({
@@ -197,7 +255,7 @@ export async function updateRow(
 
   const rowValues = headers.map((header) => {
     const value = data[header];
-    return value === null || value === undefined ? '' : value;
+    return formatValueForSheets(value);
   });
 
   await sheets.spreadsheets.values.update({
