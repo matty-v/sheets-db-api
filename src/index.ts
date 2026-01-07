@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import * as path from 'path';
 import { http } from '@google-cloud/functions-framework';
 import { spreadsheetIdMiddleware } from './middleware/spreadsheetId';
 import sheetsRouter from './routes/sheets';
@@ -26,6 +27,10 @@ app.use('/sheets/:sheetName/rows', spreadsheetIdMiddleware, rowsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'docs.html'));
 });
 
 app.use((_req, res) => {
