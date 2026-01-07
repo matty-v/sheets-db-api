@@ -69,8 +69,15 @@ interface Response {
 
 // Read and parse the OpenAPI spec
 const openapiPath = path.join(__dirname, '..', 'openapi.yaml');
-const openapiContent = fs.readFileSync(openapiPath, 'utf8');
-const spec: OpenAPISpec = yaml.parse(openapiContent);
+let spec: OpenAPISpec;
+try {
+  const openapiContent = fs.readFileSync(openapiPath, 'utf8');
+  spec = yaml.parse(openapiContent);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error(`Failed to read or parse OpenAPI spec at ${openapiPath}: ${message}`);
+  process.exit(1);
+}
 
 // Helper to resolve $ref
 function resolveRef(ref: string): Parameter | Schema {
@@ -763,13 +770,15 @@ function generateHTML(): string {
       <div class="sidebar-title">${spec.info.title}</div>
       <div class="sidebar-version">v${spec.info.version}</div>
 
-      ${Object.entries(groups).map(([groupName, endpoints]) => `
+      ${Object.entries(groups)
+        .filter(([, endpoints]) => endpoints.length > 0)
+        .map(([groupName, endpoints]) => `
         <div class="nav-group">
           <div class="nav-group-title">${groupName}</div>
           ${endpoints.map((endpoint: Endpoint) => `
             <a href="#${endpoint.operation.operationId}" class="nav-item">
               <span class="nav-method" style="background: ${getMethodColor(endpoint.method)}20; color: ${getMethodColor(endpoint.method)};">${endpoint.method}</span>
-              <span>${endpoint.operation.summary}</span>
+              <span>${escapeHtml(endpoint.operation.summary)}</span>
             </a>
           `).join('')}
         </div>
@@ -814,7 +823,9 @@ function generateHTML(): string {
       </section>
 
       <!-- Endpoints -->
-      ${Object.entries(groups).map(([groupName, endpoints]) => `
+      ${Object.entries(groups)
+        .filter(([, endpoints]) => endpoints.length > 0)
+        .map(([groupName, endpoints]) => `
         <section class="section">
           <h2 class="section-title">${groupName}</h2>
           ${endpoints.map((endpoint: Endpoint) => {
@@ -870,15 +881,15 @@ function generateHTML(): string {
             const curlExample = curlParts.join(' \\\n');
 
             return `
-              <div class="endpoint-card" id="${operation.operationId}" style="--method-color: ${methodColor};">
+              <div class="endpoint-card" id="${operation.operationId}">
                 <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: ${methodColor};"></div>
                 <div class="endpoint-header">
                   <span class="method-badge" style="background: ${methodColor}20; color: ${methodColor};">${method.toUpperCase()}</span>
                   <span class="endpoint-path">${formattedPath}</span>
-                  <span class="endpoint-description">${operation.summary}</span>
+                  <span class="endpoint-description">${escapeHtml(operation.summary)}</span>
                 </div>
                 <div class="endpoint-body">
-                  <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem;">${operation.description}</p>
+                  <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 1.5rem;">${escapeHtml(operation.description)}</p>
 
                   ${resolvedParams.length > 0 ? `
                     <div class="endpoint-section">
@@ -901,7 +912,7 @@ function generateHTML(): string {
                               </td>
                               <td><span class="param-type">${param.schema?.type || 'string'}</span></td>
                               <td><span class="param-location">${param.in}</span></td>
-                              <td>${param.description}</td>
+                              <td>${escapeHtml(param.description)}</td>
                             </tr>
                           `).join('')}
                         </tbody>
@@ -995,13 +1006,25 @@ function main() {
 
   // Ensure dist directory exists
   const distDir = path.join(__dirname, '..', 'dist');
-  if (!fs.existsSync(distDir)) {
-    fs.mkdirSync(distDir, { recursive: true });
+  try {
+    if (!fs.existsSync(distDir)) {
+      fs.mkdirSync(distDir, { recursive: true });
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to create dist directory at ${distDir}: ${message}`);
+    process.exit(1);
   }
 
   // Write the HTML file
   const outputPath = path.join(distDir, 'docs.html');
-  fs.writeFileSync(outputPath, html, 'utf8');
+  try {
+    fs.writeFileSync(outputPath, html, 'utf8');
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to write documentation file at ${outputPath}: ${message}`);
+    process.exit(1);
+  }
 
   console.log(`Done! Documentation generated at dist/docs.html`);
 }
