@@ -4,7 +4,7 @@
   "description": "Google Cloud Function that proxies requests to Google Sheets API",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npx ts-node scripts/build-docs.ts",
     "start": "functions-framework --target=sheetsApi",
     "dev": "tsc -w & functions-framework --target=sheetsApi",
     "test": "vitest run",
