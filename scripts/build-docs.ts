@@ -507,6 +507,21 @@ function generateHTML(): string {
       color: var(--accent-amber);
     }
 
+    .info-card-full {
+      grid-column: 1 / -1;
+    }
+
+    .service-account {
+      display: inline-block;
+      background: var(--bg-primary);
+      padding: 0.5rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      color: var(--accent-cyan);
+      border: 1px solid var(--accent-cyan);
+      word-break: break-all;
+    }
+
     /* Endpoint Cards */
     .endpoint-card {
       background: var(--glass-bg);
@@ -817,6 +832,14 @@ function generateHTML(): string {
             <h3 class="info-card-title">Row Indexing</h3>
             <p class="info-card-content">
               Rows are 1-indexed in the API. Row 1 contains headers, so data rows start at index 2.
+            </p>
+          </div>
+          <div class="info-card info-card-full">
+            <h3 class="info-card-title">Sheet Access</h3>
+            <p class="info-card-content">
+              Share your Google Sheet with the API service account to grant access:<br><br>
+              <code class="service-account">sheets-db-api@kinetic-object-322814.iam.gserviceaccount.com</code><br><br>
+              Grant <strong>Editor</strong> access to allow the API to read and write data.
             </p>
           </div>
         </div>
