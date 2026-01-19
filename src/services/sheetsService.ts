@@ -304,6 +304,11 @@ export interface BulkRowResult {
   data: RowData;
 }
 
+export interface BulkUpdateRequest {
+  rowIndex: number;
+  data: RowData;
+}
+
 export async function appendRows(
   spreadsheetId: string,
   sheetName: string,
@@ -373,6 +378,74 @@ export async function appendRows(
     rowIndex: startRow + index,
     data,
   }));
+
+  return results;
+}
+
+export async function updateRows(
+  spreadsheetId: string,
+  sheetName: string,
+  rows: BulkUpdateRequest[]
+): Promise<BulkRowResult[]> {
+  // Get headers
+  const headers = await getSchema(spreadsheetId, sheetName);
+
+  // Batch read existing data for all rows
+  const ranges = rows.map((r) => `'${sheetName}'!${r.rowIndex}:${r.rowIndex}`);
+  const batchGetResponse = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId,
+    ranges,
+  });
+
+  const existingRows = batchGetResponse.data.valueRanges || [];
+
+  // Merge existing data with updates
+  const updateData = rows.map((row, index) => {
+    const existingValues = existingRows[index]?.values?.[0] || [];
+    const existingData: RowData = {};
+    headers.forEach((header, idx) => {
+      existingData[header] = formatValueFromSheets(existingValues[idx]);
+    });
+
+    // Merge: existing + new data (new data overwrites)
+    const mergedData = { ...existingData, ...row.data };
+
+    // Convert back to array for Sheets
+    const rowValues = headers.map((header) => {
+      const value = mergedData[header];
+      return formatValueForSheets(value);
+    });
+
+    return {
+      range: `'${sheetName}'!${row.rowIndex}:${row.rowIndex}`,
+      values: [rowValues],
+    };
+  });
+
+  // Batch update all rows
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      valueInputOption: 'USER_ENTERED',
+      data: updateData,
+    },
+  });
+
+  // Build results with merged data
+  const results: BulkRowResult[] = rows.map((row, index) => {
+    const existingValues = existingRows[index]?.values?.[0] || [];
+    const existingData: RowData = {};
+    headers.forEach((header, idx) => {
+      existingData[header] = formatValueFromSheets(existingValues[idx]);
+    });
+
+    const mergedData = { ...existingData, ...row.data };
+
+    return {
+      rowIndex: row.rowIndex,
+      data: mergedData,
+    };
+  });
 
   return results;
 }
