@@ -4,7 +4,16 @@ import { createTestApp } from './setup';
 import { expectContractCompliance } from './contractValidator';
 import * as sheetsService from '../services/sheetsService';
 
-vi.mock('../services/sheetsService');
+vi.mock('../services/sheetsService', () => ({
+  getSchema: vi.fn(),
+  getRows: vi.fn(),
+  getRow: vi.fn(),
+  appendRow: vi.fn(),
+  updateRow: vi.fn(),
+  deleteRow: vi.fn(),
+  appendRows: vi.fn(),
+  updateRows: vi.fn(),
+}));
 
 const mockedSheetsService = vi.mocked(sheetsService);
 
@@ -478,6 +487,35 @@ describe('Rows Endpoint Contract Tests', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error).toContain('Cannot create rows without any properties');
+    });
+  });
+
+  describe('PUT /sheets/{sheetName}/rows/bulk', () => {
+    it('should update multiple rows and return merged data', async () => {
+      const mockResults = [
+        { rowIndex: 5, data: { id: 1, name: 'Alice Updated', email: 'alice@example.com', age: 31 } },
+        { rowIndex: 8, data: { id: 2, name: 'Bob Updated', email: 'bob.new@example.com', age: 26 } },
+      ];
+
+      mockedSheetsService.updateRows.mockResolvedValue(mockResults);
+
+      const rows = [
+        { rowIndex: 5, data: { name: 'Alice Updated', age: 31 } },
+        { rowIndex: 8, data: { name: 'Bob Updated', email: 'bob.new@example.com' } },
+      ];
+
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(200);
+      expect(response.body.rows).toHaveLength(2);
+      expect(response.body.rows[0]).toHaveProperty('rowIndex', 5);
+      expect(response.body.rows[0]).toHaveProperty('data');
+      expect(response.body.rows[0].data).toEqual(mockResults[0].data);
+      expect(response.body.rows[1]).toHaveProperty('rowIndex', 8);
+      expect(response.body.rows[1].data).toEqual(mockResults[1].data);
     });
   });
 });
