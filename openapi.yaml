@@ -199,6 +199,40 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /sheets/{sheetName}/rows/bulk:
+    post:
+      summary: Create multiple rows
+      description: Creates multiple rows in a single request. Accepts 1-1000 rows. If the sheet is empty, creates headers from the first row's keys.
+      operationId: createRowsBulk
+      parameters:
+        - $ref: '#/components/parameters/SpreadsheetId'
+        - $ref: '#/components/parameters/SheetName'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkCreateRowsRequest'
+      responses:
+        '201':
+          description: Rows created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkCreateRowsResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /sheets/{sheetName}/rows/{rowIndex}:
     get:
       summary: Get a specific row
@@ -445,3 +479,59 @@ components:
         - rowIndex
       example:
         rowIndex: 5
+
+    BulkCreateRowsRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/RowData'
+          minItems: 1
+          maxItems: 1000
+          description: Array of row objects to create (1-1000 rows)
+      required:
+        - rows
+      example:
+        rows:
+          - id: 1
+            name: "Alice"
+            email: "alice@example.com"
+            age: 30
+          - id: 2
+            name: "Bob"
+            email: "bob@example.com"
+            age: 25
+
+    BulkCreateRowsResponse:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            properties:
+              rowIndex:
+                type: integer
+                description: The 1-indexed row number of the created row
+              data:
+                $ref: '#/components/schemas/RowData'
+            required:
+              - rowIndex
+              - data
+      required:
+        - rows
+      example:
+        rows:
+          - rowIndex: 5
+            data:
+              id: 1
+              name: "Alice"
+              email: "alice@example.com"
+              age: 30
+          - rowIndex: 6
+            data:
+              id: 2
+              name: "Bob"
+              email: "bob@example.com"
+              age: 25
