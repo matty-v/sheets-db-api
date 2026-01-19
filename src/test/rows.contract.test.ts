@@ -396,4 +396,74 @@ describe('Rows Endpoint Contract Tests', () => {
       );
     });
   });
+
+  describe('POST /sheets/{sheetName}/rows/bulk', () => {
+    it('should create multiple rows and return their indices', async () => {
+      const mockResults = [
+        { rowIndex: 2, data: { name: 'Alice', email: 'alice@example.com', age: 30 } },
+        { rowIndex: 3, data: { name: 'Bob', email: 'bob@example.com', age: 25 } },
+      ];
+
+      mockedSheetsService.appendRows.mockResolvedValue(mockResults);
+
+      const rows = [
+        { name: 'Alice', email: 'alice@example.com', age: 30 },
+        { name: 'Bob', email: 'bob@example.com', age: 25 },
+      ];
+
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(201);
+      expect(response.body.rows).toHaveLength(2);
+      expect(response.body.rows[0]).toHaveProperty('rowIndex');
+      expect(response.body.rows[0]).toHaveProperty('data');
+      expect(response.body.rows[0].data).toEqual(rows[0]);
+      expect(response.body.rows[1].data).toEqual(rows[1]);
+    });
+
+    it('should return 400 for empty rows array', async () => {
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('empty');
+    });
+
+    it('should return 400 for missing rows field', async () => {
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('rows');
+    });
+
+    it('should return 400 for exceeding 1000 row limit', async () => {
+      const rows = Array.from({ length: 1001 }, (_, i) => ({ name: `User${i}` }));
+
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('1000');
+    });
+
+    it('should return 400 for invalid row format', async () => {
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: ['not an object', { valid: 'object' }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('object');
+    });
+  });
 });

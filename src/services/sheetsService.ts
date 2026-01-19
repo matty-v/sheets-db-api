@@ -298,3 +298,78 @@ export async function deleteRow(
     },
   });
 }
+
+export interface BulkRowResult {
+  rowIndex: number;
+  data: RowData;
+}
+
+export async function appendRows(
+  spreadsheetId: string,
+  sheetName: string,
+  rows: RowData[]
+): Promise<BulkRowResult[]> {
+  // Validate input
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error('rows must be a non-empty array');
+  }
+
+  if (rows.length > 1000) {
+    throw new Error('Cannot create more than 1000 rows at once');
+  }
+
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error('All items in rows array must be objects');
+    }
+  }
+
+  // Get or create headers
+  let headers = await getSchema(spreadsheetId, sheetName);
+
+  // If no headers exist, create them from the first row's keys
+  if (headers.length === 0) {
+    headers = Object.keys(rows[0]);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId,
+      range: `'${sheetName}'!1:1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [headers],
+      },
+    });
+  }
+
+  // Transform all rows to value arrays
+  const rowValues = rows.map((row) =>
+    headers.map((header) => {
+      const value = row[header];
+      return formatValueForSheets(value);
+    })
+  );
+
+  // Append all rows in a single API call
+  const response = await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `'${sheetName}'`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: {
+      values: rowValues,
+    },
+  });
+
+  // Parse updated range to extract row indices
+  const updatedRange = response.data.updates?.updatedRange || '';
+  const match = updatedRange.match(/:?(\d+)$/);
+  const endRow = match ? parseInt(match[1], 10) : -1;
+  const startRow = endRow - rows.length + 1;
+
+  // Build result array with row indices and original data
+  const results: BulkRowResult[] = rows.map((data, index) => ({
+    rowIndex: startRow + index,
+    data,
+  }));
+
+  return results;
+}

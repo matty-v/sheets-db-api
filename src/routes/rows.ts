@@ -62,6 +62,52 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/bulk', async (req: Request, res: Response) => {
+  try {
+    const { sheetName } = req.params;
+    const { rows } = req.body;
+
+    // Validate request body
+    if (!rows) {
+      res.status(400).json({ error: 'Request body must include rows array' });
+      return;
+    }
+
+    if (!Array.isArray(rows)) {
+      res.status(400).json({ error: 'rows must be an array' });
+      return;
+    }
+
+    if (rows.length === 0) {
+      res.status(400).json({ error: 'rows array cannot be empty' });
+      return;
+    }
+
+    if (rows.length > 1000) {
+      res.status(400).json({ error: 'Cannot create more than 1000 rows at once' });
+      return;
+    }
+
+    for (const row of rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row)) {
+        res.status(400).json({ error: 'All items in rows array must be objects' });
+        return;
+      }
+    }
+
+    const results = await sheetsService.appendRows(
+      req.spreadsheetId,
+      sheetName,
+      rows
+    );
+
+    res.status(201).json({ rows: results });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    res.status(500).json({ error: message });
+  }
+});
+
 router.put('/:rowIndex', async (req: Request, res: Response) => {
   try {
     const { sheetName, rowIndex } = req.params;
