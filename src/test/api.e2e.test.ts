@@ -201,6 +201,118 @@ describe('E2E API Tests', () => {
     });
   });
 
+  describe('Bulk Create Rows E2E', () => {
+    const testSheetName = 'BulkE2ETest';
+
+    beforeAll(async () => {
+      // Create test sheet
+      await request(app)
+        .post('/sheets')
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID)
+        .send({ name: testSheetName });
+    });
+
+    afterAll(async () => {
+      // Clean up test sheet
+      await request(app)
+        .delete(`/sheets/${testSheetName}`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID);
+    });
+
+    it('should create multiple rows with various data types', async () => {
+      const rows = [
+        {
+          name: 'Alice',
+          email: 'alice@example.com',
+          age: 30,
+          active: true,
+          joined: '2025-01-15T10:00:00.000Z',
+        },
+        {
+          name: 'Bob',
+          email: 'bob@example.com',
+          age: 25,
+          active: false,
+          joined: '2025-02-20T15:30:00.000Z',
+        },
+        {
+          name: 'Charlie',
+          email: 'charlie@example.com',
+          age: 35,
+          active: true,
+          joined: '2025-03-10T08:45:00.000Z',
+        },
+      ];
+
+      const response = await request(app)
+        .post(`/sheets/${testSheetName}/rows/bulk`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID)
+        .send({ rows });
+
+      expect(response.status).toBe(201);
+      expect(response.body.rows).toHaveLength(3);
+
+      // Verify row indices are sequential
+      expect(response.body.rows[0].rowIndex).toBe(2);
+      expect(response.body.rows[1].rowIndex).toBe(3);
+      expect(response.body.rows[2].rowIndex).toBe(4);
+
+      // Verify data matches input
+      expect(response.body.rows[0].data).toEqual(rows[0]);
+      expect(response.body.rows[1].data).toEqual(rows[1]);
+      expect(response.body.rows[2].data).toEqual(rows[2]);
+
+      // Verify rows exist in sheet
+      const getResponse = await request(app)
+        .get(`/sheets/${testSheetName}/rows`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID);
+
+      expect(getResponse.status).toBe(200);
+      expect(getResponse.body.rows).toHaveLength(3);
+      expect(getResponse.body.rows[0].name).toBe('Alice');
+      expect(getResponse.body.rows[1].name).toBe('Bob');
+      expect(getResponse.body.rows[2].name).toBe('Charlie');
+    });
+
+    it('should handle inconsistent row schemas', async () => {
+      const testSheetName2 = 'BulkE2EInconsistent';
+
+      await request(app)
+        .post('/sheets')
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID)
+        .send({ name: testSheetName2 });
+
+      const rows = [
+        { name: 'Alice', email: 'alice@example.com', age: 30 },
+        { name: 'Bob', age: 25 }, // missing email
+        { name: 'Charlie', email: 'charlie@example.com' }, // missing age
+      ];
+
+      const response = await request(app)
+        .post(`/sheets/${testSheetName2}/rows/bulk`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID)
+        .send({ rows });
+
+      expect(response.status).toBe(201);
+      expect(response.body.rows).toHaveLength(3);
+
+      // Verify rows exist with null for missing fields
+      const getResponse = await request(app)
+        .get(`/sheets/${testSheetName2}/rows`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID);
+
+      expect(getResponse.status).toBe(200);
+      expect(getResponse.body.rows[0]).toEqual(rows[0]);
+      expect(getResponse.body.rows[1].email).toBeNull();
+      expect(getResponse.body.rows[2].age).toBeNull();
+
+      // Cleanup
+      await request(app)
+        .delete(`/sheets/${testSheetName2}`)
+        .set('X-Spreadsheet-Id', TEST_SPREADSHEET_ID);
+    });
+  });
+
   describe('Error Handling', () => {
     it('should return 400 when X-Spreadsheet-Id header is missing', async () => {
       const response = await request(app).get('/sheets');
