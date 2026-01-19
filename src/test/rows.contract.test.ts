@@ -465,5 +465,19 @@ describe('Rows Endpoint Contract Tests', () => {
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('object');
     });
+
+    it('should return 500 when first row contains no properties', async () => {
+      mockedSheetsService.appendRows.mockRejectedValue(
+        new Error('Cannot create rows without any properties')
+      );
+
+      const response = await request(app)
+        .post('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [{}] });
+
+      expect(response.status).toBe(500);
+      expect(response.body.error).toContain('Cannot create rows without any properties');
+    });
   });
 });

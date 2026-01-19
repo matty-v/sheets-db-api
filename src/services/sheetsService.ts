@@ -330,6 +330,9 @@ export async function appendRows(
   // If no headers exist, create them from the first row's keys
   if (headers.length === 0) {
     headers = Object.keys(rows[0]);
+    if (headers.length === 0) {
+      throw new Error('Cannot create rows without any properties');
+    }
     await sheets.spreadsheets.values.update({
       spreadsheetId,
       range: `'${sheetName}'!1:1`,
