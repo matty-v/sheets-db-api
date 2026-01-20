@@ -408,6 +408,13 @@ export async function updateRows(
     }
   }
 
+  // Check for duplicate rowIndex values
+  const rowIndices = rows.map(r => r.rowIndex);
+  const uniqueIndices = new Set(rowIndices);
+  if (uniqueIndices.size !== rowIndices.length) {
+    throw new Error('Duplicate rowIndex values are not allowed');
+  }
+
   // Get headers
   const headers = await getSchema(spreadsheetId, sheetName);
 
