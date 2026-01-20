@@ -387,6 +387,27 @@ export async function updateRows(
   sheetName: string,
   rows: BulkUpdateRequest[]
 ): Promise<BulkRowResult[]> {
+  // Validate input
+  if (!Array.isArray(rows) || rows.length === 0) {
+    throw new Error('rows must be a non-empty array');
+  }
+
+  if (rows.length > 1000) {
+    throw new Error('Cannot update more than 1000 rows at once');
+  }
+
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || Array.isArray(row)) {
+      throw new Error('All items in rows array must be objects');
+    }
+    if (typeof row.rowIndex !== 'number' || row.rowIndex < 2) {
+      throw new Error('rowIndex must be >= 2 (row 1 contains headers)');
+    }
+    if (!row.data || typeof row.data !== 'object' || Array.isArray(row.data)) {
+      throw new Error('Row data must be an object');
+    }
+  }
+
   // Get headers
   const headers = await getSchema(spreadsheetId, sheetName);
 
@@ -399,28 +420,22 @@ export async function updateRows(
 
   const existingRows = batchGetResponse.data.valueRanges || [];
 
-  // Merge existing data with updates
-  const updateData = rows.map((row, index) => {
+  // Merge existing data with updates (done once, reused for both update and results)
+  const mergedDataArray = rows.map((row, index) => {
     const existingValues = existingRows[index]?.values?.[0] || [];
     const existingData: RowData = {};
     headers.forEach((header, idx) => {
       existingData[header] = formatValueFromSheets(existingValues[idx]);
     });
-
     // Merge: existing + new data (new data overwrites)
-    const mergedData = { ...existingData, ...row.data };
-
-    // Convert back to array for Sheets
-    const rowValues = headers.map((header) => {
-      const value = mergedData[header];
-      return formatValueForSheets(value);
-    });
-
-    return {
-      range: `'${sheetName}'!${row.rowIndex}:${row.rowIndex}`,
-      values: [rowValues],
-    };
+    return { ...existingData, ...row.data };
   });
+
+  // Build update data using merged results
+  const updateData = mergedDataArray.map((mergedData, index) => ({
+    range: `'${sheetName}'!${rows[index].rowIndex}:${rows[index].rowIndex}`,
+    values: [headers.map((header) => formatValueForSheets(mergedData[header]))],
+  }));
 
   // Batch update all rows
   await sheets.spreadsheets.values.batchUpdate({
@@ -431,21 +446,11 @@ export async function updateRows(
     },
   });
 
-  // Build results with merged data
-  const results: BulkRowResult[] = rows.map((row, index) => {
-    const existingValues = existingRows[index]?.values?.[0] || [];
-    const existingData: RowData = {};
-    headers.forEach((header, idx) => {
-      existingData[header] = formatValueFromSheets(existingValues[idx]);
-    });
-
-    const mergedData = { ...existingData, ...row.data };
-
-    return {
-      rowIndex: row.rowIndex,
-      data: mergedData,
-    };
-  });
+  // Build results using merged data
+  const results: BulkRowResult[] = rows.map((row, index) => ({
+    rowIndex: row.rowIndex,
+    data: mergedDataArray[index],
+  }));
 
   return results;
 }
