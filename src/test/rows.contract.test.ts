@@ -628,5 +628,46 @@ describe('Rows Endpoint Contract Tests', () => {
       expect(response.body.error).toContain('Duplicate rowIndex');
       expect(response.body.error).toContain('5');
     });
+
+    it('should update single row (minimum)', async () => {
+      const mockResults = [
+        { rowIndex: 5, data: { id: 1, name: 'Alice Updated', age: 31 } },
+      ];
+
+      mockedSheetsService.updateRows.mockResolvedValue(mockResults);
+
+      const rows = [
+        { rowIndex: 5, data: { name: 'Alice Updated' } },
+      ];
+
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(200);
+      expect(response.body.rows).toHaveLength(1);
+      expect(response.body.rows[0].rowIndex).toBe(5);
+    });
+
+    it('should handle empty data object', async () => {
+      const mockResults = [
+        { rowIndex: 5, data: { id: 1, name: 'Alice', age: 30 } },
+      ];
+
+      mockedSheetsService.updateRows.mockResolvedValue(mockResults);
+
+      const rows = [
+        { rowIndex: 5, data: {} },
+      ];
+
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(200);
+      expect(response.body.rows[0].data).toEqual(mockResults[0].data);
+    });
   });
 });
