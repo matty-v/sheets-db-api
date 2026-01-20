@@ -517,5 +517,116 @@ describe('Rows Endpoint Contract Tests', () => {
       expect(response.body.rows[1]).toHaveProperty('rowIndex', 8);
       expect(response.body.rows[1].data).toEqual(mockResults[1].data);
     });
+
+    it('should return 400 for missing rows field', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('rows');
+    });
+
+    it('should return 400 when rows is not an array', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: 'not an array' });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('array');
+    });
+
+    it('should return 400 for empty rows array', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('empty');
+    });
+
+    it('should return 400 for exceeding 1000 row limit', async () => {
+      const rows = Array.from({ length: 1001 }, (_, i) => ({
+        rowIndex: i + 2,
+        data: { name: `User${i}` }
+      }));
+
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('1000');
+    });
+
+    it('should return 400 when row item is not an object', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: ['not an object'] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('object');
+    });
+
+    it('should return 400 when row missing rowIndex field', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [{ data: { name: 'Alice' } }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('rowIndex');
+    });
+
+    it('should return 400 when row missing data field', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [{ rowIndex: 5 }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('data');
+    });
+
+    it('should return 400 when data is not an object', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [{ rowIndex: 5, data: 'not an object' }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('data must be an object');
+    });
+
+    it('should return 400 when rowIndex is less than 2', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({ rows: [{ rowIndex: 1, data: { name: 'Alice' } }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('rowIndex must be >= 2');
+    });
+
+    it('should return 400 for duplicate rowIndex values', async () => {
+      const response = await request(app)
+        .put('/sheets/Users/rows/bulk')
+        .set('X-Spreadsheet-Id', spreadsheetId)
+        .send({
+          rows: [
+            { rowIndex: 5, data: { name: 'Alice' } },
+            { rowIndex: 5, data: { name: 'Bob' } }
+          ]
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Duplicate rowIndex');
+      expect(response.body.error).toContain('5');
+    });
   });
 });
