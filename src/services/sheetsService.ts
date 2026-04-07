@@ -221,6 +221,20 @@ export async function appendRow(
         values: [headers],
       },
     });
+  } else {
+    // Expand headers if data contains new keys
+    const newKeys = Object.keys(data).filter((key) => !headers.includes(key));
+    if (newKeys.length > 0) {
+      headers = [...headers, ...newKeys];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${sheetName}'!1:1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [headers],
+        },
+      });
+    }
   }
 
   const rowValues = headers.map((header) => {
@@ -346,6 +360,21 @@ export async function appendRows(
         values: [headers],
       },
     });
+  } else {
+    // Expand headers if rows contain new keys
+    const allKeys = new Set(rows.flatMap((row) => Object.keys(row)));
+    const newKeys = [...allKeys].filter((key) => !headers.includes(key));
+    if (newKeys.length > 0) {
+      headers = [...headers, ...newKeys];
+      await sheets.spreadsheets.values.update({
+        spreadsheetId,
+        range: `'${sheetName}'!1:1`,
+        valueInputOption: 'USER_ENTERED',
+        requestBody: {
+          values: [headers],
+        },
+      });
+    }
   }
 
   // Transform all rows to value arrays
